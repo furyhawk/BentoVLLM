@@ -1,6 +1,6 @@
 [project]
 name = "gpt-oss-20b"
-version = "1.4.27"
+version = "1.4.25"
 description = "Self-host LLMs with vLLM and BentoML"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,17 +33,11 @@ name = "gpt-oss-20b"
 gpu_type = "nvidia-h100-80gb"
 tp = 1
 model_id = "openai/gpt-oss-20b"
-post = [
-  "uv pip install -U openai lmcache nixl",
-  "uv pip install -U --pre vllm --extra-index-url https://wheels.vllm.ai/nightly/ --torch-backend=cu128 --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
-]
 exclude = [
   "original/**/*",
   "metal/**/*",
 ]
-attn_backend = "TRITON_ATTN_VLLM_V1"
 skip_flashinfer = true
-nightly = true
 reasoning_parser = "openai_gptoss"
 tool_parser = "openai"
 cli_args = [

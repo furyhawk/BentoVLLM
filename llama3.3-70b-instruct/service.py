@@ -120,7 +120,7 @@ class BentoArgs(pydantic.BaseModel):
   @property
   def image(self) -> bentoml.images.Image:
     image = (
-      bentoml.images.Image(python_version='3.12').system_packages('curl', 'git').requirements_file('requirements.txt')
+      bentoml.images.Image(python_version='3.12', base_image="nvidia/cuda:12.9.1-cudnn-runtime-ubuntu22.04", lock_python_packages=False).system_packages('curl', 'git').requirements_file('requirements.txt')
     )
     if self.post:
       for cmd in self.post:
