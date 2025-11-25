@@ -94,6 +94,7 @@ class BentoArgs(pydantic.BaseModel):
       'hf_generation_config': json.dumps(self.hf_generation_config),
       'reasoning': '1' if self.reasoning_parser else '0',
       'tool': self.tool_parser or '',
+      'openai_model': self.model_id,
     }
     return default
 
