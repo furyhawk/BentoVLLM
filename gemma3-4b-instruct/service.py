@@ -21,17 +21,35 @@ class BentoArgs(pydantic.BaseModel):
   tp: int = 1
   dp: int | None = None
   port: int = 8000
-  attn_backend: str = 'FLASH_ATTN'
+  # FlashAttention is fast for the language model, but Gemma 3 multimodal's
+  # vision tower can use attention head dims that FlashAttention doesn't support
+  # (e.g. not a multiple of 32). Keep FlashAttention as the global default,
+  # and override the multimodal encoder attention backend separately.
+  # For Gemma 3 multimodal, prefer XFormers by default to avoid FlashAttention
+  # headdim constraints in the vision tower.
+  attn_backend: str = 'XFORMERS'
+  mm_encoder_attn_backend: str = 'XFORMERS'
   nightly: bool = False
   reasoning_parser: str | None = None
   tool_parser: str | None = None
   kv_cache_dtype: str | None = None
-  max_model_len: int | None = None
+  # Gemma-3-4b-it advertises a very large max length (131072). On smaller GPUs
+  # this can lead to OOM during KV-cache initialization and warmup. Keep a
+  # conservative default that can be overridden.
+  max_model_len: int | None = 4096
+  # vLLM warmups sampler using max_num_seqs dummy requests; default 256 can OOM
+  # on smaller GPUs.
+  max_num_seqs: int | None = 16
+  # Leave some headroom for warmup/overheads while still allowing KV cache.
+  gpu_memory_utilization: float | None = 0.90
+  # torch.compile / CUDA graphs can increase memory overhead significantly.
+  enforce_eager: bool = True
+  compilation_config: dict[str, typing.Any] | None = None
   hf_system_prompt: str | None = None
 
-  name: str = 'llama3.1-8b-instruct'
+  name: str = 'google/gemma-3-4b-it'
   gpu_type: str = 'nvidia-h100-80gb'
-  model_id: str = 'meta-llama/Meta-Llama-3.1-8B-Instruct'
+  model_id: str = 'google/gemma-3-4b-it'
 
   kv_transfer_config: dict[str, typing.Any] = pydantic.Field(default_factory=dict)
   post: list[str] = pydantic.Field(default_factory=list)
@@ -43,8 +61,8 @@ class BentoArgs(pydantic.BaseModel):
   )
   metadata: dict[str, typing.Any] = pydantic.Field(
     default_factory=lambda: {
-      'description': 'Llama 3.1 8B Instruct',
-      'provider': 'Meta',
+      'description': 'Gemma 3.4B Instruct',
+      'provider': 'Google',
       'gpu_recommendation': 'an Nvidia GPU with at least 80GB VRAM (e.g about 1 H100 GPU).',
     }
   )
@@ -85,7 +103,16 @@ class BentoArgs(pydantic.BaseModel):
       default.extend(['--reasoning-parser', self.reasoning_parser])
     if self.max_model_len:
       default.extend(['--max-model-len', str(self.max_model_len)])
-    default.extend(['--compilation-config', json.dumps({'level': 3})])
+    if self.max_num_seqs:
+      default.extend(['--max-num-seqs', str(self.max_num_seqs)])
+    if self.gpu_memory_utilization:
+      default.extend(['--gpu-memory-utilization', str(self.gpu_memory_utilization)])
+    if self.enforce_eager:
+      default.append('--enforce-eager')
+    if self.mm_encoder_attn_backend:
+      default.extend(['--mm-encoder-attn-backend', str(self.mm_encoder_attn_backend)])
+    if self.compilation_config and not self.enforce_eager:
+      default.extend(['--compilation-config', json.dumps(self.compilation_config)])
     return default
 
   @property
